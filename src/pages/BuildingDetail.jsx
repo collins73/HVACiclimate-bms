@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Building2, Layers, AlertTriangle, Plus, ChevronLeft, Thermometer, Pencil, Map, Calculator } from 'lucide-react';
+import { Building2, Layers, AlertTriangle, Plus, ChevronLeft, Thermometer, Pencil, Map, Calculator, Box } from 'lucide-react';
 import BlueprintPinEditor from '@/components/buildings/BlueprintPinEditor';
 import LoadEstimator from '@/components/buildings/LoadEstimator';
+import FloorPlan3DViewer from '@/components/buildings/FloorPlan3DViewer';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/shared/PageHeader';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -20,18 +21,21 @@ export default function BuildingDetail() {
   const [zoneModal, setZoneModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [buildings, setBuildings] = useState([]);
-  const [tab, setTab] = useState('zones'); // zones | blueprints | loads
+  const [tab, setTab] = useState('zones'); // zones | blueprints | 3d | loads
+  const [sensorPins, setSensorPins] = useState([]);
 
   const load = async () => {
     try {
-      const [b, allBuildings, z, a, r, bps] = await Promise.all([
+      const [b, allBuildings, z, a, r, bps, pins] = await Promise.all([
         base44.entities.Building.filter({ id }),
         base44.entities.Building.list(),
         base44.entities.Zone.filter({ building_id: id }),
         base44.entities.Alert.filter({ building_id: id }),
         base44.entities.EnvironmentReading.list('-timestamp', 100),
         base44.entities.Blueprint.filter({ building_id: id }),
+        base44.entities.SensorPin.filter({ building_id: id }),
       ]);
+      setSensorPins(pins);
       const buildingRecord = b[0];
       // Merge inline blueprints with Blueprint entity records (normalize to {name, url, floor})
       const inlineUrls = new Set((buildingRecord?.blueprints || []).map(bp => bp.url));
@@ -119,6 +123,7 @@ export default function BuildingDetail() {
         {[
           { id: 'zones', label: 'Zones', icon: Layers },
           { id: 'blueprints', label: 'Blueprints', icon: Map },
+          { id: '3d', label: '3D Model', icon: Box },
           { id: 'loads', label: 'Load Estimator', icon: Calculator },
         ].map(t => {
           const Icon = t.icon;
@@ -180,6 +185,16 @@ export default function BuildingDetail() {
       {/* Blueprints */}
       {tab === 'blueprints' && (
         <BlueprintPinEditor building={building} zones={zones} blueprints={building.blueprints} />
+      )}
+
+      {/* 3D Model */}
+      {tab === '3d' && (
+        <FloorPlan3DViewer
+          building={building}
+          zones={zones}
+          blueprints={building.blueprints}
+          sensorPins={sensorPins}
+        />
       )}
 
       {/* Load Estimator */}
